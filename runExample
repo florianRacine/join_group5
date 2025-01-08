@@ -1,0 +1,1 @@
+./myjoin data/a.csv data/b.csv data/c.csv data/d.csv |sort|diff - data/abcd.csv
