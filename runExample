@@ -1,1 +1,3 @@
 ./myjoin data/a.csv data/b.csv data/c.csv data/d.csv |sort|diff - data/abcd.csv
+./yourjoin data/f1.csv data/f2.csv data/f3.csv data/f4.csv |sort|diff - data/output.csv
+LC_NUMERIC=en_US perf stat -e cycles myjoin data/f1.csv data/f2.csv data/f3.csv data/f4.csv|cat >/dev/null
