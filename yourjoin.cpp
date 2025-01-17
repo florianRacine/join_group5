@@ -10,31 +10,27 @@
 #include <mutex>
 #include <future>
 
-// Function to split a string by a delimiter
+inline static
+
 std::vector<std::string> split(const std::string& line, char delimiter) {
     std::vector<std::string> fields;
+    fields.reserve(2);
     std::stringstream ss(line);
     std::string field;
+
     while (std::getline(ss, field, delimiter)) {
         fields.push_back(field);
     }
     return fields;
 }
-
 // Load the file into a multimap, where key is the first field and value is the second field
-std::unordered_multimap<std::string, std::string> loadFile(const std::string& filename, int keyIndex) {
+std::unordered_multimap<std::string, std::string> loadFile(const std::string& filename) {
     std::unordered_multimap<std::string, std::string> data;
     std::ifstream file(filename);
     std::string line;
     while (std::getline(file, line)) {
         auto fields = split(line, ',');
-        if ((int)fields.size() > keyIndex) {
-            if (keyIndex == 0) {
-                data.emplace(fields[0], fields[1]);
-            } else if (keyIndex == 1) {
-                data.emplace(fields[1], fields[0]);
-            }
-        }
+	data.emplace(fields[0], fields[1]);
     }
     return data;
 }
@@ -45,6 +41,9 @@ int main(int argc, char* argv[]) {
         std::cerr << "Usage: " << argv[0] << " file1 file2 file3 file4\n";
         return 1;
     }
+
+    std::ostringstream outputBuffer;
+    size_t bufferLimit = 1000; // Flush after 1000 lines.
 
 
     //std::cout << "load files\n";
@@ -60,10 +59,10 @@ int main(int argc, char* argv[]) {
     std::unordered_multimap<std::string, std::string> file1, file2, file3, file4;
 
     // Use std::async to load files in parallel
-    auto future1 = std::async(std::launch::async, [&]() { return loadFile(argv[1], 0); });
-    auto future2 = std::async(std::launch::async, [&]() { return loadFile(argv[2], 0); });
-    auto future3 = std::async(std::launch::async, [&]() { return loadFile(argv[3], 0); });
-    auto future4 = std::async(std::launch::async, [&]() { return loadFile(argv[4], 0); });
+    auto future1 = std::async(std::launch::async, [&]() { return loadFile(argv[1]); });
+    auto future2 = std::async(std::launch::async, [&]() { return loadFile(argv[2]); });
+    auto future3 = std::async(std::launch::async, [&]() { return loadFile(argv[3]); });
+    auto future4 = std::async(std::launch::async, [&]() { return loadFile(argv[4]); });
 
     // Retrieve the results
     file1 = future1.get();
@@ -93,12 +92,12 @@ int main(int argc, char* argv[]) {
 
         // Step 2.2: Find all matching records in file2 for key1
         auto range2 = file2.equal_range(key1);
+	auto range3 = file3.equal_range(key1);
         for (auto it2 = range2.first; it2 != range2.second; ++it2) {
             // it2->first: First field of file2 (matches key1)
             // it2->second: Second field of file2
 
             // Step 2.3: Find all matching records in file3 for key1
-            auto range3 = file3.equal_range(key1);
             for (auto it3 = range3.first; it3 != range3.second; ++it3) {
                 // it3->first: First field of file3 (matches key1)
                 // it3->second: Second field of file3
@@ -109,18 +108,25 @@ int main(int argc, char* argv[]) {
                     // it4->first: First field of file4 (matches second field of file3)
                     // it4->second: Second field of file4
 
-                    // Step 3: Output the joined record
-                    // Format: [file4.first, file1.first, file1.second, file2.second, file4.second]
-                    std::cout << it4->first << ','  // First field of file4
-                              << key1 << ','        // First field of file1
-                              << value1 << ','      // Second field of file1
-                              << it2->second << ',' // Second field of file2
-                              << it4->second        // Second field of file4
-                              << '\n';
-                }
+                    // Append the record to the buffer
+                    outputBuffer << it4->first << ',' << key1 << ',' << value1 << ',' 
+                                 << it2->second << ',' << it4->second << '\n';
+
+                    // Check if the buffer exceeds the character limit
+                    if (outputBuffer.tellp() >= static_cast<std::streamoff>(bufferLimit)) {
+                        std::cout << outputBuffer.str();
+                        outputBuffer.str("");   // Clear the buffer
+                        outputBuffer.clear();   // Reset the stream state
+                    }                
+		}
             }
         }
     }
+    // Flush any remaining data in the buffer
+    if (outputBuffer.tellp() > 0) {
+        std::cout << outputBuffer.str();
+    }
+
     //std::cout << "end\n";
 
     // Step 4: Completion
