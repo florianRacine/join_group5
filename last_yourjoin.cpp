@@ -26,11 +26,30 @@ std::unordered_multimap<std::string, std::string> loadFile(const std::string& fi
     return data;
 }
 
+std::vector<std::pair<std::string, std::string>> loadFileToVector(const std::string& filename) {
+    std::vector<std::pair<std::string, std::string>> data;
+    std::ifstream file(filename);
+    std::string line;
+
+    while (std::getline(file, line)) {
+        std::stringstream ss(line);
+        std::string key, value;
+        if (std::getline(ss, key, ',') && std::getline(ss, value)) {
+            data.emplace_back(key, value);
+        }
+    }
+
+    return data;
+}
+
 int main(int argc, char* argv[]) {
     if (argc != 5) {
         std::cerr << "Usage: " << argv[0] << " file1 file2 file3 file4\n";
         return 1;
     }
+
+    std::ios_base::sync_with_stdio(false);
+    std::cout.tie(nullptr);
 
     std::ostringstream outputBuffer;
     size_t bufferLimit = 1000;
